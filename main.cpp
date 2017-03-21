@@ -10,6 +10,7 @@ using namespace std;
 
 vector< vector< int > > theCostMatrix;
 vector< int > theTour;
+vector< int > theBestTour;
 
 bool ReadCostMatrix()
 {
@@ -57,7 +58,7 @@ void RandomCostMatrix( int s )
         theCostMatrix.push_back( vrow );
     }
 
-        int count = 0;
+    int count = 0;
     for( auto& vr : theCostMatrix )
     {
         if( vr.size() != theCostMatrix.size() )
@@ -84,10 +85,11 @@ void DumpCostMatrix()
     }
 }
 
+
 int TourCost()
 {
     int cost = 0;
-    for( int k = 1; k < theTour.size(); k++ )
+    for( int k = 1; k < (int)theTour.size(); k++ )
     {
 
         //cout << k-1 << " to " << k << " cost " <<theCostMatrix[k-1][k] << "\n";
@@ -96,20 +98,35 @@ int TourCost()
     return cost;
 }
 
+void DumpBestTour()
+{
+    theTour = theBestTour;
+    for( int city : theBestTour )
+    {
+        cout << city << " ";
+    }
+    cout << " = " << TourCost() << "\n";
+}
+
+/** An exhaustive search of all possible tours to find absolute cheapest */
 void ExhaustiveSearch()
 {
     int minCost = INT_MAX;
     vector< int > bestTour;
 
-    for( int k = 0; k < theCostMatrix.size(); k++ )
+    // start with visiting all cities in indexed order
+    for( int k = 0; k < (int)theCostMatrix.size(); k++ )
         theTour.push_back( k );
 
+    // loop over all possible permutations of visiting order
     do
     {
 
+        // calculate tour cost
         int cost = TourCost();
         if( cost < minCost )
         {
+            // found a cheaper tour
             minCost = cost;
             bestTour = theTour;
         }
@@ -117,11 +134,59 @@ void ExhaustiveSearch()
     }
     while( next_permutation(theTour.begin(), theTour.end() ));
 
-    for( int city : bestTour )
+    DumpBestTour();
+}
+/** Implement greedy heuristic.
+
+    Starting from each city in turn,
+    always visit the next cheapest city that has not already been visited
+    until all cities have been visited
+    then select the cheapest tour found from any starting city
+*/
+void Greedy()
+{
+    int cheapestTourCost = INT_MAX;
+
+    // loop over possible starting cities
+    for( int start = 0; start < theCostMatrix.size(); start++ )
     {
-        cout << city << " ";
+        theTour.clear();
+        theTour.push_back( start );
+        // loop over steps in tour
+        for( int kstep = 1; kstep < (int)theCostMatrix.size(); kstep++ )
+        {
+            int cheapestNextStepCost = INT_MAX;
+            int cheapestNext;
+            // loop over possible next step
+            for( int next = 0; next <  (int)theCostMatrix.size(); next++  )
+            {
+                // check that we have not already visited
+                auto it = find( theTour.begin(), theTour.end(), next );
+                if( it != theTour.end() )
+                    continue;
+
+                // check if this is the cheapest possible next step
+                int cost = theCostMatrix[theTour.back()][next];
+                if( cost < cheapestNextStepCost )
+                {
+                    cheapestNextStepCost = cost;
+                    cheapestNext = next;
+                }
+            }
+            // add cheapest next step to tour
+            theTour.push_back( cheapestNext );
+        }
+
+        // check if the tour starting from this city is the cheapest found
+        int cost = TourCost();
+        if( cost < cheapestTourCost )
+        {
+            cheapestTourCost = cost;
+            theBestTour = theTour;
+        }
     }
-    cout << " = " << minCost << "\n";
+
+    DumpBestTour();
 }
 
 int main()
@@ -129,8 +194,18 @@ int main()
     //ReadCostMatrix();
     RandomCostMatrix(50);
     DumpCostMatrix();
-    ExhaustiveSearch();
 
+
+    if( theCostMatrix.size() < 10 )
+    {
+        // for small tours, an exhaustive search is practical
+        ExhaustiveSearch();
+    }
+    else
+    {
+        // for large tours, the greedy heuristic usually gives a reasonable result
+        Greedy();
+    }
 
     return 0;
 }
